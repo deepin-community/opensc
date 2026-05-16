@@ -1,3 +1,10 @@
+opensc (0.25.1-1deepin4) unstable; urgency=medium
+
+  * Fix CVE-2025-66038: Fix sc_compacttlv_find_tag out-of-bounds pointer
+    (GHSA-72x5-fwjx-2459)
+
+ -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:16:36 +0800
+
 opensc (0.25.1-1deepin3) unstable; urgency=medium
 
   * Fix CVE-2025-66037: Fix out-of-bounds heap read in X.509/SPKI
