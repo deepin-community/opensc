@@ -1,3 +1,10 @@
+opensc (0.25.1-1deepin3) unstable; urgency=medium
+
+  * Fix CVE-2025-66037: Fix out-of-bounds heap read in X.509/SPKI
+    handling (GHSA-m58q-rmjm-mmfx)
+
+ -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:16:11 +0800
+
 opensc (0.25.1-1deepin2) unstable; urgency=medium
 
   * Fix CVE-2025-49010: Fix stack-buffer-overflow write in GET RESPONSE
