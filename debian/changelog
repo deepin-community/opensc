@@ -1,3 +1,10 @@
+opensc (0.25.1-1deepin2) unstable; urgency=medium
+
+  * Fix CVE-2025-49010: Fix stack-buffer-overflow write in GET RESPONSE
+    (GHSA-q5cf-5wmx-9wh4)
+
+ -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:15:56 +0800
+
 opensc (0.25.1-1deepin1) unstable; urgency=medium
 
   * Fix CVE-2025-13763: Fix use of uninitialized variables in libopensc
