@@ -1,3 +1,10 @@
+opensc (0.25.1-1deepin5) unstable; urgency=medium
+
+  * Fix CVE-2025-66215: Fix stack-buffer-overflow write in card-oberthur
+    (GHSA-q5fc-cw56-hwp2)
+
+ -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:16:56 +0800
+
 opensc (0.25.1-1deepin4) unstable; urgency=medium
 
   * Fix CVE-2025-66038: Fix sc_compacttlv_find_tag out-of-bounds pointer
