@@ -1,3 +1,11 @@
+opensc (0.25.1-1deepin1) unstable; urgency=medium
+
+  * Fix CVE-2025-13763: Fix use of uninitialized variables in libopensc
+    that may lead to information disclosure or application crash
+    (GHSA-2v44-fq35-98vv)
+
+ -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:11:52 +0800
+
 opensc (0.25.1-1) unstable; urgency=medium
 
   * Team upload
