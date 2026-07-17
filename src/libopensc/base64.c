@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -54,15 +54,14 @@ static const u8 bin_table[128] = {
 
 static void to_base64(unsigned int i, u8 *out, size_t fillers)
 {
-	unsigned int s = 18, c;
+	unsigned int s, c;
 
-	for (c = 0; c < 4; c++) {
+	for (c = 0, s = 18; c < 4; c++, s -= 6) {
 		if (fillers >= 4 - c)
 			*out = base64_table[64];
 		else
 			*out = base64_table[(i >> s) & 0x3f];
 		out++;
-		s -= 6;
 	}
 }
 

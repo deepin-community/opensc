@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -1367,6 +1367,8 @@ sc_pkcs15_pubkey_from_spki_fields(struct sc_context *ctx, struct sc_pkcs15_pubke
 	pk_alg.params = NULL;
 	sc_log(ctx, "DEE pk_alg.algorithm=%lu", pk_alg.algorithm);
 
+	if (pk.len == 0)
+		LOG_TEST_GOTO_ERR(ctx, SC_ERROR_INTERNAL, "Incorrect length of key");
 	pk.len = (pk.len + 7)/8;	/* convert number of bits to bytes */
 
 	if (pk_alg.algorithm == SC_ALGORITHM_EC)   {
@@ -1609,7 +1611,7 @@ sc_pkcs15_convert_pubkey(struct sc_pkcs15_pubkey *pkcs15_key, void *evp_key)
 			return SC_ERROR_INCOMPATIBLE_KEY;
 		RSA_get0_key(src, &src_n, &src_e, NULL);
 		if (!src_n || !src_e) {
-			free(src);
+			RSA_free(src);
 			return SC_ERROR_INTERNAL;
 		}
 #else

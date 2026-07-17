@@ -51,6 +51,9 @@ static CK_FUNCTION_LIST_PTR pkcs11_spy = NULL;
 static CK_FUNCTION_LIST_3_0_PTR pkcs11_spy_3_0 = NULL;
 /* Real Module Function List */
 static CK_FUNCTION_LIST_3_0_PTR po = NULL;
+/* Real module interface list */
+static CK_INTERFACE_PTR orig_interfaces = NULL;
+static unsigned long num_orig_interfaces = 0;
 /* Dynamic Module Handle */
 static void *modhandle = NULL;
 /* Spy module output */
@@ -183,6 +186,8 @@ allocate_function_list(int v3)
 CK_INTERFACE compat_interfaces[NUM_INTERFACES] = {
 	{"PKCS 11", NULL, 0}
 };
+
+CK_INTERFACE spy_interface = {"PKCS 11", NULL, 0};
 
 /* Inits the spy. If successful, po != NULL */
 static CK_RV
@@ -445,6 +450,21 @@ spy_dump_mechanism_in(const char *name, CK_MECHANISM_PTR pMechanism)
 			spy_dump_string_in(param_name,
 				param->pAAD, param->ulAADLen);
 			fprintf(spy_output, "[in] %s->pParameter->ulTagBits = %lu\n", name, param->ulTagBits);
+		} else {
+			fprintf(spy_output, "[in] %s->pParameter = NULL\n", name);
+			break;
+		}
+		break;
+	case CKM_AES_CCM:
+		if (pMechanism->pParameter != NULL) {
+			CK_CCM_PARAMS *param = (CK_CCM_PARAMS *)pMechanism->pParameter;
+			snprintf(param_name, sizeof(param_name), "%s->pParameter->ulDataLen", name);
+			spy_dump_ulong_in(param_name, param->ulDataLen);
+			snprintf(param_name, sizeof(param_name), "%s->pParameter->pNonce[ulNonceLen]", name);
+			spy_dump_string_in(param_name, param->pNonce, param->ulNonceLen);
+			snprintf(param_name, sizeof(param_name), "%s->pParameter->pAAD[ulAADLen]", name);
+			spy_dump_string_in(param_name, param->pAAD, param->ulAADLen);
+			fprintf(spy_output, "[in] %s->pParameter->ulMacLen = %lu\n", name, param->ulMACLen);
 		} else {
 			fprintf(spy_output, "[in] %s->pParameter = NULL\n", name);
 			break;
@@ -1020,8 +1040,11 @@ C_Encrypt(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG  ulDataLen,
 	spy_dump_ulong_in("hSession", hSession);
 	spy_dump_string_in("pData[ulDataLen]", pData, ulDataLen);
 	rv = po->C_Encrypt(hSession, pData, ulDataLen, pEncryptedData, pulEncryptedDataLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pEncryptedData[*pulEncryptedDataLen]", pEncryptedData, *pulEncryptedDataLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulEncryptedDataLen", *pulEncryptedDataLen);
+	}
 	return retne(rv);
 }
 
@@ -1048,9 +1071,12 @@ C_EncryptFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pLastEncryptedPart, CK_UL
 	enter("C_EncryptFinal");
 	spy_dump_ulong_in("hSession", hSession);
 	rv = po->C_EncryptFinal(hSession, pLastEncryptedPart, pulLastEncryptedPartLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pLastEncryptedPart[*pulLastEncryptedPartLen]", pLastEncryptedPart,
 				*pulLastEncryptedPartLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulLastEncryptedPartLen", *pulLastEncryptedPartLen);
+	}
 
 	return retne(rv);
 }
@@ -1078,8 +1104,11 @@ C_Decrypt(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pEncryptedData, CK_ULONG  ulEn
 	spy_dump_ulong_in("hSession", hSession);
 	spy_dump_string_in("pEncryptedData[ulEncryptedDataLen]", pEncryptedData, ulEncryptedDataLen);
 	rv = po->C_Decrypt(hSession, pEncryptedData, ulEncryptedDataLen, pData, pulDataLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pData[*pulDataLen]", pData, *pulDataLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulDataLen", *pulDataLen);
+	}
 
 	return retne(rv);
 }
@@ -1108,8 +1137,11 @@ C_DecryptFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pLastPart, CK_ULONG_PTR p
 	enter("C_DecryptFinal");
 	spy_dump_ulong_in("hSession", hSession);
 	rv = po->C_DecryptFinal(hSession, pLastPart, pulLastPartLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pLastPart[*pulLastPartLen]", pLastPart, *pulLastPartLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulLastPartLen", *pulLastPartLen);
+	}
 
 	return retne(rv);
 }
@@ -1203,8 +1235,11 @@ C_Sign(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG  ulDataLen,
 	spy_dump_ulong_in("hSession", hSession);
 	spy_dump_string_in("pData[ulDataLen]", pData, ulDataLen);
 	rv = po->C_Sign(hSession, pData, ulDataLen, pSignature, pulSignatureLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pSignature[*pulSignatureLen]", pSignature, *pulSignatureLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulSignatureLen", *pulSignatureLen);
+	}
 
 	return retne(rv);
 }
@@ -1229,8 +1264,11 @@ C_SignFinal(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature, CK_ULONG_PTR pul
 	enter("C_SignFinal");
 	spy_dump_ulong_in("hSession", hSession);
 	rv = po->C_SignFinal(hSession, pSignature, pulSignatureLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pSignature[*pulSignatureLen]", pSignature, *pulSignatureLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulSignatureLen", *pulSignatureLen);
+	}
 
 	return retne(rv);
 }
@@ -1258,8 +1296,11 @@ C_SignRecover(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG  ulDataLen
 	spy_dump_ulong_in("hSession", hSession);
 	spy_dump_string_in("pData[ulDataLen]", pData, ulDataLen);
 	rv = po->C_SignRecover(hSession, pData, ulDataLen, pSignature, pulSignatureLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pSignature[*pulSignatureLen]", pSignature, *pulSignatureLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulSignatureLen", *pulSignatureLen);
+	}
 	return retne(rv);
 }
 
@@ -1462,8 +1503,11 @@ C_WrapKey(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
 	spy_dump_ulong_in("hWrappingKey", hWrappingKey);
 	spy_dump_ulong_in("hKey", hKey);
 	rv = po->C_WrapKey(hSession, pMechanism, hWrappingKey, hKey, pWrappedKey, pulWrappedKeyLen);
-	if (rv == CKR_OK)
+	if (rv == CKR_OK) {
 		spy_dump_string_out("pWrappedKey[*pulWrappedKeyLen]", pWrappedKey, *pulWrappedKeyLen);
+	} else if (rv == CKR_BUFFER_TOO_SMALL) {
+		spy_dump_ulong_out("pulWrappedKeyLen", *pulWrappedKeyLen);
+	}
 
 	return retne(rv);
 }
@@ -1568,22 +1612,24 @@ C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pRserved)
 	return retne(rv);
 }
 
-/* PKCS #11 3.0 functions */
+/* Returns spied PKCS #11 3.0 interface based on the interface version returned from the
+ * underlying pkcs11 module, respecting major versions */
 static void
-spy_interface_function_list(CK_INTERFACE_PTR pInterface)
+spy_interface_function_list(CK_INTERFACE_PTR pInterface, CK_INTERFACE_PTR_PTR retInterface)
 {
 	CK_VERSION *version;
 
 	/* Do not touch unknown interfaces. We can not do anything with these */
 	if (strcmp(pInterface->pInterfaceName, "PKCS 11") != 0) {
+		*retInterface = pInterface;
 		return;
 	}
 
 	version = (CK_VERSION *)pInterface->pFunctionList;
 	if (version->major == 2) {
-		pInterface->pFunctionList = pkcs11_spy;
+		(*retInterface)->pFunctionList = pkcs11_spy;
 	} else if (version->major == 3 && version->minor == 0) {
-		pInterface->pFunctionList = pkcs11_spy_3_0;
+		(*retInterface)->pFunctionList = pkcs11_spy_3_0;
 	}
 }
 
@@ -1627,17 +1673,31 @@ C_GetInterfaceList(CK_INTERFACE_PTR pInterfacesList, CK_ULONG_PTR pulCount)
 	}
 	rv = po->C_GetInterfaceList(pInterfacesList, pulCount);
 	if (rv == CKR_OK) {
-		spy_dump_desc_out("pInterfacesList");
+		spy_dump_desc_out("pInterfacesList (original)");
 		print_interfaces_list(spy_output, pInterfacesList, *pulCount);
-		spy_dump_ulong_out("*pulCount", *pulCount);
 
-		/* Now, replace function lists of known interfaces (PKCS 11, v 2.x and 3.0) */
 		if (pInterfacesList != NULL) {
 			unsigned long i;
+			/* Record the module interface so we can transparently proxy the GetInterface calls */
+			free(orig_interfaces);
+			num_orig_interfaces = 0;
+			orig_interfaces = malloc(*pulCount * sizeof(CK_INTERFACE));
+			if (orig_interfaces == NULL) {
+				return CKR_HOST_MEMORY;
+			}
+			memcpy(orig_interfaces, pInterfacesList, *pulCount * sizeof(CK_INTERFACE));
+			num_orig_interfaces = *pulCount;
+
+			/* Now, replace function lists of known interfaces (PKCS 11, v 2.x and 3.0) */
 			for (i = 0; i < *pulCount; i++) {
-				spy_interface_function_list(&pInterfacesList[i]);
+				CK_INTERFACE_PTR pInterface = &pInterfacesList[i];
+				spy_interface_function_list(pInterface, &pInterface);
 			}
 		}
+
+		spy_dump_desc_out("pInterfacesList (faked)");
+		print_interfaces_list(spy_output, pInterfacesList, *pulCount);
+		spy_dump_ulong_out("*pulCount", *pulCount);
 	}
 	return retne(rv);
 }
@@ -1671,9 +1731,37 @@ C_GetInterface(CK_UTF8CHAR_PTR pInterfaceName, CK_VERSION_PTR pVersion,
 	fprintf(spy_output, "[in] flags = %s\n",
 		(flags & CKF_INTERFACE_FORK_SAFE ? "CKF_INTERFACE_FORK_SAFE" : ""));
 	if (po->version.major >= 3) {
-		rv = po->C_GetInterface(pInterfaceName, pVersion, ppInterface, flags);
-		if (rv == CKR_OK && ppInterface != NULL) {
-			spy_interface_function_list(*ppInterface);
+		CK_VERSION in_version = {0, 0};
+		CK_VERSION_PTR fakeVersion = NULL;
+		CK_INTERFACE_PTR rInterface = NULL;
+
+		/* make a copy of the in parameter to avoid modifying it directly */
+		if (pVersion) {
+			in_version = *pVersion;
+			fakeVersion = &in_version;
+		}
+
+		/* We can not assume the version we told the caller matches the version in the underlying
+		 * pkcs11 module so map it back to the known ones */
+		if ((pInterfaceName == NULL || strcmp((char *)pInterfaceName, "PKCS 11") == 0) && pVersion) {
+			for (unsigned long i = 0; i < num_orig_interfaces; i++) {
+				CK_VERSION *v = (CK_VERSION *)orig_interfaces[i].pFunctionList;
+				/* We found the same major version. Copy the minor and call it a day */
+				if (v->major == pVersion->major) {
+					in_version.major = v->major;
+					in_version.minor = v->minor;
+					fprintf(spy_output, "[in] fakeVersion = %d.%d (faked pVersion)\n",
+							in_version.major, in_version.minor);
+					break;
+				}
+			}
+			/* If not found, see what we will get */
+		}
+
+		rv = po->C_GetInterface(pInterfaceName, fakeVersion, &rInterface, flags);
+		if (rv == CKR_OK && rInterface != NULL) {
+			*ppInterface = &spy_interface;
+			spy_interface_function_list(rInterface, ppInterface);
 		}
 	} else {
 		if ((pInterfaceName == NULL_PTR || strcmp((char *)pInterfaceName, "PKCS 11") == 0) &&

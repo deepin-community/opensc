@@ -21,7 +21,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -41,8 +41,7 @@
 #include <eac/cv_cert.h>
 #include <eac/eac.h>
 #include <eac/ta.h>
-#include <openssl/bio.h>
-#include <openssl/crypto.h>
+#include <openssl/evp.h>
 #endif
 
 
@@ -497,8 +496,6 @@ static int sc_hsm_soc_biomatch(sc_card_t *card, struct sc_pin_cmd_data *data,
 	LOG_FUNC_RETURN(card->ctx, SC_ERROR_PIN_CODE_INCORRECT);
 }
 
-
-
 #if defined(ENABLE_SM) && defined(ENABLE_OPENPACE)
 
 static int sc_hsm_perform_chip_authentication(sc_card_t *card)
@@ -593,7 +590,11 @@ static int sc_hsm_perform_chip_authentication(sc_card_t *card)
 		goto err;
 	}
 	EVP_PKEY_free(ctx->ca_ctx->ka_ctx->key);
-	EVP_PKEY_up_ref(ctx->ta_ctx->pub_key);
+	if (!EVP_PKEY_up_ref(ctx->ta_ctx->pub_key)) {
+		sc_log_openssl(card->ctx);
+		r = SC_ERROR_INTERNAL;
+		goto err;
+	}
 	ctx->ca_ctx->ka_ctx->key = ctx->ta_ctx->pub_key;
 
 	/* generate keys for CA */
@@ -1019,6 +1020,10 @@ static int sc_hsm_set_security_env(sc_card_t *card,
 				priv->algorithm = ALGO_RSA_PKCS1_SHA1;
 			} else if (env->algorithm_flags & SC_ALGORITHM_RSA_HASH_SHA256) {
 				priv->algorithm = ALGO_RSA_PKCS1_SHA256;
+			} else if (env->algorithm_flags & SC_ALGORITHM_RSA_HASH_SHA384) {
+				priv->algorithm = ALGO_RSA_PKCS1_SHA384;
+			} else if (env->algorithm_flags & SC_ALGORITHM_RSA_HASH_SHA512) {
+				priv->algorithm = ALGO_RSA_PKCS1_SHA512;
 			} else {
 				priv->algorithm = ALGO_RSA_PKCS1;
 			}
@@ -1047,6 +1052,10 @@ static int sc_hsm_set_security_env(sc_card_t *card,
 			priv->algorithm = ALGO_EC_SHA224;
 		} else if (env->algorithm_flags & SC_ALGORITHM_ECDSA_HASH_SHA256) {
 			priv->algorithm = ALGO_EC_SHA256;
+		} else if (env->algorithm_flags & SC_ALGORITHM_ECDSA_HASH_SHA384) {
+			priv->algorithm = ALGO_EC_SHA384;
+		} else if (env->algorithm_flags & SC_ALGORITHM_ECDSA_HASH_SHA512) {
+			priv->algorithm = ALGO_EC_SHA512;
 		} else if (env->algorithm_flags & SC_ALGORITHM_ECDSA_RAW) {
 			priv->algorithm = ALGO_EC_RAW;
 		} else {
@@ -1064,27 +1073,11 @@ static int sc_hsm_set_security_env(sc_card_t *card,
 
 static int sc_hsm_decode_ecdsa_signature(sc_card_t *card,
 					const u8 * data, size_t datalen,
-					u8 * out, size_t outlen) {
+					u8 * out, size_t outlen,
+					size_t key_size) {
 
 	int r;
-	size_t fieldsizebytes;
-
-	// Determine field size from length of signature
-	if (datalen <= 58) {			// 192 bit curve = 24 * 2 + 10 byte maximum DER signature
-		fieldsizebytes = 24;
-	} else if (datalen <= 66) {		// 224 bit curve = 28 * 2 + 10 byte maximum DER signature
-		fieldsizebytes = 28;
-	} else if (datalen <= 74) {		// 256 bit curve = 32 * 2 + 10 byte maximum DER signature
-		fieldsizebytes = 32;
-	} else if (datalen <= 90) {		// 320 bit curve = 40 * 2 + 10 byte maximum DER signature
-		fieldsizebytes = 40;
-	} else if (datalen <= 106) {		// 384 bit curve = 48 * 2 + 10 byte maximum DER signature
-		fieldsizebytes = 48;
-	} else if (datalen <= 137) {		// 512 bit curve = 64 * 2 + 9 byte maximum DER signature
-		fieldsizebytes = 64;
-	} else {
-		fieldsizebytes = 66;
-	}
+	size_t fieldsizebytes = (key_size + 7) >> 3;
 
 	sc_log(card->ctx,
 	       "Field size %"SC_FORMAT_LEN_SIZE_T"u, signature buffer size %"SC_FORMAT_LEN_SIZE_T"u",
@@ -1130,7 +1123,7 @@ static int sc_hsm_compute_signature(sc_card_t *card,
 		int len;
 
 		if ((priv->algorithm & 0xF0) == ALGO_EC_RAW) {
-			len = sc_hsm_decode_ecdsa_signature(card, apdu.resp, apdu.resplen, out, outlen);
+			len = sc_hsm_decode_ecdsa_signature(card, apdu.resp, apdu.resplen, out, outlen, priv->env->key_size_bits);
 			if (len < 0) {
 				LOG_FUNC_RETURN(card->ctx, len);
 			}
@@ -1801,7 +1794,7 @@ static int sc_hsm_init(struct sc_card *card)
 	LOG_FUNC_CALLED(card->ctx);
 
 	flags = SC_ALGORITHM_RSA_RAW|SC_ALGORITHM_RSA_PAD_PSS|SC_ALGORITHM_ONBOARD_KEY_GEN
-			|SC_ALGORITHM_RSA_HASH_SHA256|SC_ALGORITHM_RSA_HASH_SHA384|SC_ALGORITHM_RSA_HASH_SHA512
+			|SC_ALGORITHM_RSA_HASH_SHA1|SC_ALGORITHM_RSA_HASH_SHA256|SC_ALGORITHM_RSA_HASH_SHA384|SC_ALGORITHM_RSA_HASH_SHA512
 			|SC_ALGORITHM_MGF1_SHA256|SC_ALGORITHM_MGF1_SHA384|SC_ALGORITHM_MGF1_SHA512;
 
 	_sc_card_add_rsa_alg(card, 1024, flags, 0);
@@ -1816,6 +1809,8 @@ static int sc_hsm_init(struct sc_card *card)
 		SC_ALGORITHM_ECDSA_HASH_SHA1|
 		SC_ALGORITHM_ECDSA_HASH_SHA224|
 		SC_ALGORITHM_ECDSA_HASH_SHA256|
+		SC_ALGORITHM_ECDSA_HASH_SHA384|
+		SC_ALGORITHM_ECDSA_HASH_SHA512|
 		SC_ALGORITHM_ONBOARD_KEY_GEN;
 
 	ext_flags = SC_ALGORITHM_EXT_EC_F_P|
