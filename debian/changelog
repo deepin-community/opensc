@@ -1,38 +1,52 @@
-opensc (0.25.1-1deepin5) unstable; urgency=medium
+opensc (0.26.1-2) unstable; urgency=medium
 
-  * Fix CVE-2025-66215: Fix stack-buffer-overflow write in card-oberthur
-    (GHSA-q5fc-cw56-hwp2)
+  * Team upload
+  * pkcs11-register: allow explicitly specifying an app to configure (Closes: #1107224)
 
- -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:16:56 +0800
+ -- Bastian Germann <bage@debian.org>  Fri, 06 Jun 2025 12:10:29 +0200
 
-opensc (0.25.1-1deepin4) unstable; urgency=medium
+opensc (0.26.1-1) unstable; urgency=medium
 
-  * Fix CVE-2025-66038: Fix sc_compacttlv_find_tag out-of-bounds pointer
-    (GHSA-72x5-fwjx-2459)
+  * Team upload
+  * New upstream release
+  * Refresh patches
 
- -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:16:36 +0800
+ -- Eric Dorland <eric@debian.org>  Sat, 22 Mar 2025 11:23:26 -0400
 
-opensc (0.25.1-1deepin3) unstable; urgency=medium
+opensc (0.26.0-1) unstable; urgency=medium
 
-  * Fix CVE-2025-66037: Fix out-of-bounds heap read in X.509/SPKI
-    handling (GHSA-m58q-rmjm-mmfx)
+  * Team upload
+  * New upstream release
+  * Rebase patches
 
- -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:16:11 +0800
+ -- Bastian Germann <bage@debian.org>  Mon, 23 Dec 2024 08:54:46 +0000
 
-opensc (0.25.1-1deepin2) unstable; urgency=medium
+opensc (0.25.1-2.1) unstable; urgency=medium
 
-  * Fix CVE-2025-49010: Fix stack-buffer-overflow write in GET RESPONSE
-    (GHSA-q5cf-5wmx-9wh4)
+  * Non-maintainer upload.
+  * Fix CVE-2024-8443: Heap buffer overflow in OpenPGP driver when generating
+    key. (Closes: #1082853)
+  * Fix CVE-2024-45615: Usage of uninitialized values in libopensc and
+    pkcs15init. (Closes: #1082859)
+  * Fix CVE-2024-45616: Uninitialized values after incorrect check or usage of
+    APDU response values in libopensc. (Closes: #1082860)
+  * Fix CVE-2024-45617: Uninitialized values after incorrect or missing
+    checking return values of functions in libopensc. (Closes: #1082861)
+  * Fix CVE-2024-45618: Uninitialized values after incorrect or missing
+    checking return values of functions in pkcs15init. (Closes: #1082862)
+  * Fix CVE-2024-45619: Incorrect handling length of buffers or files in
+    libopensc. (Closes: #1082863)
+  * Fix CVE-2024-45620: Incorrect handling length of buffers or files in
+    pkcs15init. (Closes: #1082864)
 
- -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:15:56 +0800
+ -- Guilhem Moulin <guilhem@debian.org>  Sun, 22 Dec 2024 17:47:53 +0100
 
-opensc (0.25.1-1deepin1) unstable; urgency=medium
+opensc (0.25.1-2) unstable; urgency=medium
 
-  * Fix CVE-2025-13763: Fix use of uninitialized variables in libopensc
-    that may lead to information disclosure or application crash
-    (GHSA-2v44-fq35-98vv)
+  * Team upload
+  * Build with gcc 14+ (Closes: #1075343)
 
- -- deepin-ci-robot <packages@deepin.org>  Sun, 17 May 2026 02:11:52 +0800
+ -- Bastian Germann <bage@debian.org>  Thu, 29 Aug 2024 17:03:27 +0200
 
 opensc (0.25.1-1) unstable; urgency=medium
 

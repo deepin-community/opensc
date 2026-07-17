@@ -23,7 +23,7 @@
  * best view with tabstop=4
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -31,10 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <openssl/sha.h>
 #include <openssl/evp.h>
-#include <openssl/rsa.h>
-#include <openssl/opensslv.h>
 
 #include "internal.h"
 #include "cardctl.h"
@@ -148,7 +145,7 @@ auth_select_aid(struct sc_card *card)
 {
 	struct sc_apdu apdu;
 	unsigned char apdu_resp[SC_MAX_APDU_BUFFER_SIZE];
-	struct auth_private_data *data =  (struct auth_private_data *) card->drv_data;
+	struct auth_private_data *data = (struct auth_private_data *)card->drv_data;
 	int rv, ii;
 	struct sc_path tmp_path;
 
@@ -165,6 +162,9 @@ auth_select_aid(struct sc_card *card)
 
 	rv = sc_transmit_apdu(card, &apdu);
 	LOG_TEST_RET(card->ctx, rv, "APDU transmit failed");
+	if (apdu.resplen < 20) {
+		LOG_TEST_RET(card->ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED, "Serial number has incorrect length");
+	}
 	card->serialnr.len = 4;
 	memcpy(card->serialnr.value, apdu.resp+15, 4);
 
@@ -1371,11 +1371,18 @@ auth_update_component(struct sc_card *card, struct auth_update_component_info *a
 			alg = sc_evp_cipher(card->ctx, "DES-EDE");
 		else
 			alg = sc_evp_cipher(card->ctx, "DES-ECB");
-		EVP_EncryptInit_ex(ctx, alg, NULL, args->data, NULL);
+		rv = EVP_EncryptInit_ex(ctx, alg, NULL, args->data, NULL);
+		if (rv == 0) {
+			sc_evp_cipher_free(alg);
+			sc_log_openssl(card->ctx);
+			sc_log(card->ctx, "OpenSSL encryption error.");
+			LOG_FUNC_RETURN(card->ctx, SC_ERROR_INTERNAL);
+		}
 		rv = EVP_EncryptUpdate(ctx, out, &outl, in, 8);
 		EVP_CIPHER_CTX_free(ctx);
 		sc_evp_cipher_free(alg);
 		if (rv == 0) {
+			sc_log_openssl(card->ctx);
 			sc_log(card->ctx, "OpenSSL encryption error.");
 			LOG_FUNC_RETURN(card->ctx, SC_ERROR_INTERNAL);
 		}

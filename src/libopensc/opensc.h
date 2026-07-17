@@ -248,10 +248,11 @@ typedef struct sc_security_env {
 	unsigned long flags;
 	int operation;
 	unsigned long algorithm, algorithm_flags;
+	size_t key_size_bits;
 
 	unsigned long algorithm_ref;
 	struct sc_path file_ref;
-	unsigned char key_ref[8];
+	unsigned char key_ref[SC_MAX_KEYREF_SIZE];
 	size_t key_ref_len;
 	struct sc_path target_file_ref; /* target key file in unwrap operation */
 
@@ -1671,6 +1672,18 @@ extern const char *sc_get_version(void);
 	}
 
 extern sc_card_driver_t *sc_get_iso7816_driver(void);
+
+/*
+ * @brief Request command chaining if needed.
+ *
+ * @param[in]     card  card
+ * @param[in,out] apdu  apdu structure to update
+ *
+ * @note Checks if the command payload or the expected response fits into the
+ * card transceive buffer. It requests command chaining from the lower levels
+ * if the data length exceeds the buffer size.
+ */
+void iso7816_fixup_transceive_length(const struct sc_card *card, struct sc_apdu *apdu);
 
 /**
  * @brief Read a complete EF by short file identifier.

@@ -35,7 +35,7 @@
  * https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.4.pdf
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -357,6 +357,27 @@ pgp_match_card(sc_card_t *card)
 }
 
 
+/* populate MF - add matching blobs listed in the pgp_objects table */
+int populate_blobs_to_mf(sc_card_t *card, struct pgp_priv_data *priv)
+{
+	pgp_do_info_t	*info;
+	for (info = priv->pgp_objects; (info != NULL) && (info->id > 0); info++) {
+		if (((info->access & READ_MASK) != READ_NEVER) && (info->get_fn != NULL)) {
+			pgp_blob_t *child = NULL;
+			sc_file_t *file = sc_file_new();
+
+			child = pgp_new_blob(card, priv->mf, info->id, file);
+
+			/* catch out of memory condition */
+			if (child == NULL) {
+				sc_file_free(file);
+				LOG_FUNC_RETURN(card->ctx, SC_ERROR_OUT_OF_MEMORY);
+			}
+		}
+	}
+	LOG_FUNC_RETURN(card->ctx, SC_SUCCESS);
+}
+
 /**
  * ABI: initialize driver & allocate private data.
  */
@@ -366,7 +387,6 @@ pgp_init(sc_card_t *card)
 	struct pgp_priv_data *priv;
 	sc_path_t	path;
 	sc_file_t	*file = NULL;
-	pgp_do_info_t	*info;
 	int		r, i;
 
 	LOG_FUNC_CALLED(card->ctx);
@@ -483,19 +503,10 @@ pgp_init(sc_card_t *card)
 	/* select MF */
 	priv->current = priv->mf;
 
-	/* populate MF - add matching blobs listed in the pgp_objects table */
-	for (info = priv->pgp_objects; (info != NULL) && (info->id > 0); info++) {
-		if (((info->access & READ_MASK) != READ_NEVER) && (info->get_fn != NULL)) {
-			pgp_blob_t *child = NULL;
-
-			child = pgp_new_blob(card, priv->mf, info->id, sc_file_new());
-
-			/* catch out of memory condition */
-			if (child == NULL) {
-				pgp_finish(card);
-				LOG_FUNC_RETURN(card->ctx, SC_ERROR_OUT_OF_MEMORY);
-			}
-		}
+	r = populate_blobs_to_mf(card, priv);
+	if (r < 0) {
+		pgp_finish(card);
+		LOG_FUNC_RETURN(card->ctx, r);
 	}
 
 	/* get card_features from ATR & DOs */
@@ -2770,14 +2781,21 @@ pgp_calculate_and_store_fingerprint(sc_card_t *card, time_t ctime,
 	/* update the blob containing fingerprints (00C5) */
 	sc_log(card->ctx, "Updating fingerprint blob 00C5.");
 	fpseq_blob = pgp_find_blob(card, 0x00C5);
-	if (fpseq_blob == NULL)
-		LOG_TEST_GOTO_ERR(card->ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot find blob 00C5");
+	if (fpseq_blob == NULL) {
+		r = SC_ERROR_OUT_OF_MEMORY;
+		LOG_TEST_GOTO_ERR(card->ctx, r, "Cannot find blob 00C5");
+	}
+	if (20U * key_info->key_id > fpseq_blob->len) {
+		r = SC_ERROR_OBJECT_NOT_VALID;
+		LOG_TEST_GOTO_ERR(card->ctx, r, "The 00C5 blob is not large enough");
+	}
 
 	/* save the fingerprints sequence */
 	newdata = malloc(fpseq_blob->len);
-	if (newdata == NULL)
-		LOG_TEST_GOTO_ERR(card->ctx, SC_ERROR_OUT_OF_MEMORY,
-			"Not enough memory to update fingerprint blob 00C5");
+	if (newdata == NULL) {
+		r = SC_ERROR_OUT_OF_MEMORY;
+		LOG_TEST_GOTO_ERR(card->ctx, r, "Not enough memory to update fingerprint blob 00C5");
+	}
 
 	memcpy(newdata, fpseq_blob->data, fpseq_blob->len);
 	/* move p to the portion holding the fingerprint of the current key */
@@ -2892,6 +2910,9 @@ pgp_parse_and_set_pubkey_output(sc_card_t *card, u8* data, size_t data_len,
 
 		/* RSA modulus */
 		if (tag == 0x0081) {
+			if (key_info->algorithm != SC_OPENPGP_KEYALGO_RSA) {
+				LOG_FUNC_RETURN(card->ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED);
+			}
 			if ((BYTES4BITS(key_info->u.rsa.modulus_len) < len)  /* modulus_len is in bits */
 				|| key_info->u.rsa.modulus == NULL) {
 
@@ -2907,6 +2928,9 @@ pgp_parse_and_set_pubkey_output(sc_card_t *card, u8* data, size_t data_len,
 		}
 		/* RSA public exponent */
 		else if (tag == 0x0082) {
+			if (key_info->algorithm != SC_OPENPGP_KEYALGO_RSA) {
+				LOG_FUNC_RETURN(card->ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED);
+			}
 			if ((BYTES4BITS(key_info->u.rsa.exponent_len) < len)  /* exponent_len is in bits */
 				|| key_info->u.rsa.exponent == NULL) {
 
@@ -2922,6 +2946,10 @@ pgp_parse_and_set_pubkey_output(sc_card_t *card, u8* data, size_t data_len,
 		}
 		/* ECC public key */
 		else if (tag == 0x0086) {
+			if (key_info->algorithm != SC_OPENPGP_KEYALGO_ECDSA &&
+					key_info->algorithm != SC_OPENPGP_KEYALGO_ECDH) {
+				LOG_FUNC_RETURN(card->ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED);
+			}
 			/* set the output data */
 			/* len is ecpoint length + format byte
 			 * see section 7.2.14 of 3.3.1 specs */
@@ -2933,6 +2961,7 @@ pgp_parse_and_set_pubkey_output(sc_card_t *card, u8* data, size_t data_len,
 					LOG_FUNC_RETURN(card->ctx, SC_ERROR_NOT_ENOUGH_MEMORY);
 			}
 			memcpy(key_info->u.ec.ecpoint, part + 1, len - 1);
+			key_info->u.ec.ecpoint_len = len - 1;
 		}
 
 		/* go to next part to parse */
@@ -3118,7 +3147,8 @@ pgp_build_tlv(sc_context_t *ctx, unsigned int tag, u8 *data, size_t len, u8 **ou
 	while ((tag >> 8*highest_order) != 0) {
 		highest_order++;
 	}
-	highest_order--;
+	if (highest_order != 0)
+		highest_order--;
 
 	/* restore class bits in output */
 	if (highest_order < 4)
@@ -3549,6 +3579,18 @@ pgp_erase_card(sc_card_t *card)
 		default:
 			LOG_TEST_RET(card->ctx, SC_ERROR_NO_CARD_SUPPORT,
 					"Card does not offer life cycle management");
+	}
+
+	if (r == SC_SUCCESS && priv->mf) {
+		pgp_blob_t *new_mf = pgp_new_blob(card, NULL, priv->mf->id, priv->mf->file);
+		if (new_mf == NULL) {
+			LOG_TEST_RET(card->ctx, SC_ERROR_INTERNAL, "Failed to allocate the new MF blob");
+		}
+		priv->mf->file = NULL;
+
+		pgp_free_blobs(priv->mf);
+		priv->mf = new_mf;
+		populate_blobs_to_mf(card, priv);
 	}
 
 	LOG_FUNC_RETURN(card->ctx, r);
