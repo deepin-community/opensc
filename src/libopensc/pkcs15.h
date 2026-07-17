@@ -486,6 +486,10 @@ struct sc_pkcs15_object {
 	struct sc_pkcs15_object *next, *prev; /* used only internally */
 
 	struct sc_pkcs15_der content;
+	/* Method for deallocating the object's content.value.
+	 * If no specific function for deallocation is given, then free() is used
+	 * to release content.value */
+	void (*content_free)(void *, size_t);
 
 	int session_object;	/* used internally. if nonzero, object is a session object. */
 };
@@ -586,7 +590,7 @@ typedef struct sc_pkcs15_card {
 		int use_pin_cache;
 		int pin_cache_counter;
 		int pin_cache_ignore_user_consent;
-		int private_certificate;
+		int pin_protected_certificate;
 	} opts;
 
 	unsigned int magic;
@@ -612,7 +616,7 @@ typedef struct sc_pkcs15_card {
 #define SC_PKCS15_OPTS_CACHE_PUBLIC_FILES		1
 #define SC_PKCS15_OPTS_CACHE_ALL_FILES			2
 
-/* suitable for struct sc_pkcs15_card.opts.private_certificate */
+/* suitable for struct sc_pkcs15_card.opts.pin_protected_certificate */
 #define SC_PKCS15_CARD_OPTS_PRIV_CERT_PROTECT		0
 #define SC_PKCS15_CARD_OPTS_PRIV_CERT_IGNORE		1
 #define SC_PKCS15_CARD_OPTS_PRIV_CERT_DECLASSIFY	2

@@ -1654,6 +1654,8 @@ sc_pkcs15init_generate_key(struct sc_pkcs15_card *p15card, struct sc_profile *pr
 		r = profile->ops->emu_store_data(p15card, profile, object, NULL, NULL);
 		if (r == SC_ERROR_NOT_IMPLEMENTED)
 			r = SC_SUCCESS;
+		if (r < 0)
+			sc_pkcs15_remove_object(p15card, object);
 		LOG_TEST_GOTO_ERR(ctx, r, "Card specific 'store data' failed");
 	}
 
@@ -1886,8 +1888,10 @@ sc_pkcs15init_store_public_key(struct sc_pkcs15_card *p15card, struct sc_profile
 		key.u.rsa.modulus.data = NULL;
 		key.u.rsa.exponent.data = NULL;
 		// copy RSA params
-		if (!(key.u.rsa.modulus.data = malloc(keyargs->key.u.rsa.modulus.len)))
-			LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Failed to copy RSA public key parameters");
+		if (!(key.u.rsa.modulus.data = malloc(keyargs->key.u.rsa.modulus.len))) {
+			r = SC_ERROR_OUT_OF_MEMORY;
+			LOG_TEST_GOTO_ERR(ctx, r, "Failed to copy RSA public key parameters");
+		}
 		memcpy(key.u.rsa.modulus.data, keyargs->key.u.rsa.modulus.data, keyargs->key.u.rsa.modulus.len);
 		if (!(key.u.rsa.exponent.data = malloc(keyargs->key.u.rsa.exponent.len))) {
 			r = SC_ERROR_OUT_OF_MEMORY;
@@ -1900,8 +1904,10 @@ sc_pkcs15init_store_public_key(struct sc_pkcs15_card *p15card, struct sc_profile
 	case SC_ALGORITHM_GOSTR3410:
 		key.u.gostr3410.xy.data = NULL;
 		// copy GOSTR params
-		if (!(key.u.gostr3410.xy.data = malloc(keyargs->key.u.gostr3410.xy.len)))
-			LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Failed to copy GOSTR public key parameters");
+		if (!(key.u.gostr3410.xy.data = malloc(keyargs->key.u.gostr3410.xy.len))) {
+			r = SC_ERROR_OUT_OF_MEMORY;
+			LOG_TEST_GOTO_ERR(ctx, r, "Failed to copy GOSTR public key parameters");
+		}
 		memcpy(key.u.gostr3410.xy.data, keyargs->key.u.gostr3410.xy.data, keyargs->key.u.gostr3410.xy.len);
 		keybits = SC_PKCS15_GOSTR3410_KEYSIZE;
 		type = SC_PKCS15_TYPE_PUBKEY_GOSTR3410;
@@ -1910,14 +1916,15 @@ sc_pkcs15init_store_public_key(struct sc_pkcs15_card *p15card, struct sc_profile
 		type = SC_PKCS15_TYPE_PUBKEY_EC;
 
 		r = sc_copy_ec_params(&key.u.ec.params, &keyargs->key.u.ec.params);
-		LOG_TEST_RET(ctx, r, "Failed to copy EC public key parameters");
+		LOG_TEST_GOTO_ERR(ctx, r, "Failed to copy EC public key parameters");
 		r = sc_pkcs15_fix_ec_parameters(ctx, &key.u.ec.params);
 		LOG_TEST_GOTO_ERR(ctx, r, "Failed to fix EC public key parameters");
 
 		keybits = key.u.ec.params.field_length;
 		break;
 	default:
-		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Unsupported key algorithm.");
+		r = SC_ERROR_NOT_SUPPORTED;
+		LOG_TEST_GOTO_ERR(ctx, r, "Unsupported key algorithm.");
 	}
 
 	if ((usage = keyargs->usage) == 0) {
@@ -1931,8 +1938,10 @@ sc_pkcs15init_store_public_key(struct sc_pkcs15_card *p15card, struct sc_profile
 
 	/* Set up the pkcs15 object. */
 	object = sc_pkcs15init_new_object(type, label, &keyargs->auth_id, NULL);
-	if (object == NULL)
-		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate new public key object");
+	if (object == NULL) {
+		r = SC_ERROR_OUT_OF_MEMORY;
+		LOG_TEST_GOTO_ERR(ctx, r, "Cannot allocate new public key object");
+	}
 
 	key_info = (struct sc_pkcs15_pubkey_info *) object->data;
 	key_info->usage = usage;
@@ -2609,6 +2618,7 @@ static int
 prkey_fixup_rsa(struct sc_pkcs15_card *p15card, struct sc_pkcs15_prkey_rsa *key)
 {
 	struct sc_context *ctx = p15card->card->ctx;
+	int r = SC_SUCCESS;
 
 	if (!key->modulus.len || !key->exponent.len || !key->d.len || !key->p.len || !key->q.len) {
 		sc_log(ctx, "Missing private RSA coefficient");
@@ -2627,9 +2637,10 @@ prkey_fixup_rsa(struct sc_pkcs15_card *p15card, struct sc_pkcs15_prkey_rsa *key)
 	 /* We don't really need an RSA structure, only the BIGNUMs */
 
 	if (!key->dmp1.len || !key->dmq1.len || !key->iqmp.len) {
-		BIGNUM *aux;
-		BN_CTX *bn_ctx;
-		BIGNUM *rsa_n, *rsa_e, *rsa_d, *rsa_p, *rsa_q, *rsa_dmp1, *rsa_dmq1, *rsa_iqmp;
+		BIGNUM *aux = NULL;
+		BN_CTX *bn_ctx = NULL;
+		BIGNUM *rsa_n = NULL, *rsa_e = NULL, *rsa_d = NULL, *rsa_p = NULL,
+		       *rsa_q = NULL, *rsa_dmp1 = NULL, *rsa_dmq1 = NULL, *rsa_iqmp = NULL;
 
 		rsa_n = BN_bin2bn(key->modulus.data, (int)key->modulus.len, NULL);
 		rsa_e = BN_bin2bn(key->exponent.data, (int)key->exponent.len, NULL);
@@ -2640,19 +2651,31 @@ prkey_fixup_rsa(struct sc_pkcs15_card *p15card, struct sc_pkcs15_prkey_rsa *key)
 		rsa_dmq1 = BN_new();
 		rsa_iqmp = BN_new();
 
+		if (!rsa_n || !rsa_e || !rsa_d || !rsa_p || !rsa_q ||
+				!rsa_dmp1 || !rsa_dmq1 || !rsa_iqmp) {
+			sc_log_openssl(ctx);
+			r = SC_ERROR_INTERNAL;
+			goto end;
+		}
+
 		aux = BN_new();
 		bn_ctx = BN_CTX_new();
 
-		BN_sub(aux, rsa_q, BN_value_one());
-		BN_mod(rsa_dmq1, rsa_d, aux, bn_ctx);
+		if (!aux || !bn_ctx) {
+			sc_log_openssl(ctx);
+			r = SC_ERROR_INTERNAL;
+			goto end;
+		}
 
-		BN_sub(aux, rsa_p, BN_value_one());
-		BN_mod(rsa_dmp1, rsa_d, aux, bn_ctx);
-
-		BN_mod_inverse(rsa_iqmp, rsa_q, rsa_p, bn_ctx);
-
-		BN_clear_free(aux);
-		BN_CTX_free(bn_ctx);
+		if (BN_sub(aux, rsa_q, BN_value_one()) != 1 ||
+				BN_mod(rsa_dmq1, rsa_d, aux, bn_ctx) != 1 ||
+				BN_sub(aux, rsa_p, BN_value_one()) != 1 ||
+				BN_mod(rsa_dmp1, rsa_d, aux, bn_ctx) != 1 ||
+				!BN_mod_inverse(rsa_iqmp, rsa_q, rsa_p, bn_ctx)) {
+			sc_log_openssl(ctx);
+			r = SC_ERROR_INTERNAL;
+			goto end;
+		}
 
 		/* Do not replace, only fill in missing */
 		if (key->dmp1.data == NULL) {
@@ -2683,7 +2706,7 @@ prkey_fixup_rsa(struct sc_pkcs15_card *p15card, struct sc_pkcs15_prkey_rsa *key)
 				key->iqmp.len = 0;
 			}
 		}
-
+end:
 		BN_clear_free(rsa_n);
 		BN_clear_free(rsa_e);
 		BN_clear_free(rsa_d);
@@ -2692,10 +2715,11 @@ prkey_fixup_rsa(struct sc_pkcs15_card *p15card, struct sc_pkcs15_prkey_rsa *key)
 		BN_clear_free(rsa_dmp1);
 		BN_clear_free(rsa_dmq1);
 		BN_clear_free(rsa_iqmp);
-
+		BN_clear_free(aux);
+		BN_CTX_free(bn_ctx);
 	}
 #endif
-	return 0;
+	return r;
 }
 
 
@@ -3807,13 +3831,15 @@ sc_pkcs15init_get_transport_key(struct sc_profile *profile, struct sc_pkcs15_car
 	if (callbacks.get_key)   {
 		rv = callbacks.get_key(profile, type, reference, defbuf, defsize, pinbuf, pinsize);
 		LOG_TEST_RET(ctx, rv, "Cannot get key");
-	}
-	else if (rv >= 0)  {
+	} else if (rv >= 0) {
 		if (*pinsize < defsize)
 			LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "Get transport key error");
 
 		memcpy(pinbuf, data.key_data, data.len);
 		*pinsize = data.len;
+	} else {
+		/* pinbuf and pinsize were not filled */
+		LOG_TEST_RET(ctx, SC_ERROR_INTERNAL, "Get transport key error");
 	}
 
 	memset(&auth_info, 0, sizeof(auth_info));
@@ -3887,7 +3913,7 @@ sc_pkcs15init_verify_secret(struct sc_profile *profile, struct sc_pkcs15_card *p
 		sc_log(ctx, "Symbolic PIN resolved to PIN(type:CHV,reference:%i)", reference);
 	}
 
-	if (path && path->len)   {
+	if (path && path->len && path->len <= SC_MAX_PATH_SIZE) {
 		struct sc_path tmp_path = *path;
 		int iter;
 		r = SC_ERROR_OBJECT_NOT_FOUND;

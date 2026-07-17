@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
-export DEB_CFLAGS_MAINT_APPEND = -Wno-error=deprecated-declarations \
-		-Wno-error=stringop-overflow
+# Should be removed on updating to version > 0.25.1
+export DEB_CFLAGS_MAINT_APPEND = -Wno-error=maybe-uninitialized
 
 %:
 	dh $@

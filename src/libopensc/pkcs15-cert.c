@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -39,7 +39,7 @@ static int
 parse_x509_cert(sc_context_t *ctx, struct sc_pkcs15_der *der, struct sc_pkcs15_cert *cert)
 {
 	int r;
-	struct sc_algorithm_id sig_alg;
+	struct sc_algorithm_id sig_alg = {0};
 	struct sc_pkcs15_pubkey *pubkey = NULL;
 	unsigned char *serial = NULL, *issuer = NULL, *subject = NULL, *buf =  der->value;
 	size_t serial_len = 0, issuer_len = 0, subject_len = 0, data_len = 0, buflen = der->len;
@@ -169,7 +169,7 @@ sc_pkcs15_get_name_from_dn(struct sc_context *ctx, const u8 *dn, size_t dn_len,
 	for (next_ava = rdn, next_ava_len = rdn_len; next_ava_len; ) {
 		const u8 *ava, *dummy, *oidp;
 		struct sc_object_id oid;
-		size_t ava_len, dummy_len, oid_len;
+		size_t ava_len = 0, dummy_len, oid_len = 0;
 
 		/* unwrap the set and point to the next ava */
 		ava = sc_asn1_skip_tag(ctx, &next_ava, &next_ava_len, SC_ASN1_TAG_SET | SC_ASN1_CONS, &ava_len);
@@ -501,7 +501,7 @@ sc_pkcs15_decode_cdf_entry(struct sc_pkcs15_card *p15card, struct sc_pkcs15_obje
 	}
 	sc_log(ctx, "Certificate path '%s'", sc_print_path(&info.path));
 
-	switch (p15card->opts.private_certificate) {
+	switch (p15card->opts.pin_protected_certificate) {
 		case SC_PKCS15_CARD_OPTS_PRIV_CERT_DECLASSIFY:
 			sc_log(ctx, "Declassifying certificate");
 			obj->flags &= ~SC_PKCS15_CO_FLAG_PRIVATE;
