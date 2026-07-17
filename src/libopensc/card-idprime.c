@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -45,41 +45,72 @@ static struct sc_card_driver idprime_drv = {
 /* This ATR says, there is no EF.DIR nor EF.ATR so ISO discovery mechanisms
  * are not useful here */
 static const struct sc_atr_table idprime_atrs[] = {
+	/* known ATRs for IDPrime 3810:
+	 * 3b:7f:96:00:00:80:31:80:65:b0:84:41:3d:f6:12:0f:fe:82:90:00    Jakuje/xhanulik
+	 */
 	{ "3b:7f:96:00:00:80:31:80:65:b0:84:41:3d:f6:12:0f:fe:82:90:00",
 	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:ff:ff:ff",
 	  "Gemalto IDPrime 3810",
 	  SC_CARD_TYPE_IDPRIME_3810, 0, NULL },
+	/* known ATRs for IDPrime 930:
+	 * 3b:7f:96:00:00:80:31:80:65:b0:84:56:51:10:12:0f:fe:82:90:00    Jakuje/xhanulik
+	 */
 	{ "3b:7f:96:00:00:80:31:80:65:b0:84:56:51:10:12:0f:fe:82:90:00",
 	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:ff:ff:ff",
 	  "Gemalto IDPrime 830",
 	  SC_CARD_TYPE_IDPRIME_830, 0, NULL },
+	/* known ATRs for IDPrime 930:
+	 * 3b:7f:96:00:00:80:31:80:65:b0:84:61:60:fb:12:0f:fd:82:90:00    Jakuje/xhanulik
+	 */
 	{ "3b:7f:96:00:00:80:31:80:65:b0:84:61:60:fb:12:0f:fe:82:90:00",
 	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:ff:ff:ff",
 	  "Gemalto IDPrime 930/3930",
 	  SC_CARD_TYPE_IDPRIME_930, 0, NULL },
+	/* known ATRs:
+	 * 3b:ff:96:00:00:81:31:fe:43:80:31:80:65:b0:84:65:66:fb:12:01:78:82:90:00:85    metsma
+	 */
 	{ "3b:ff:96:00:00:81:31:fe:43:80:31:80:65:b0:84:65:66:fb:12:01:78:82:90:00:85",
 	  "ff:ff:00:ff:ff:ff:ff:00:ff:ff:ff:ff:ff:ff:00:00:00:00:ff:ff:ff:ff:ff:ff:00",
-	  "based Gemalto IDPrime 930",
+	  "based Gemalto IDPrime 930 (eToken 5110+ FIPS)",
 	  SC_CARD_TYPE_IDPRIME_930, 0, NULL },
-	{ "3b:7f:96:00:00:80:31:80:65:b0:85:59:56:fb:12:0f:fe:82:90:00",
-	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:00:00:00:ff:00:00:ff:ff:ff",
-	  "Gemalto IDPrime 940",
-	  SC_CARD_TYPE_IDPRIME_940, 0, NULL },
-	{ "3b:7f:96:00:00:80:31:80:65:b0:85:05:00:39:12:0f:fe:82:90:00",
-	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:ff:ff:ff",
-	  "Gemalto IDPrime 940C",
-	  SC_CARD_TYPE_IDPRIME_940, 0, NULL },
+	/* known ATR for IDPrime 940: Placing in front of the 940 as its mask overlaps this one!
+	 * 3b:7f:96:00:00:80:31:80:65:b0:85:03:00:ef:12:0f:fe:82:90:00   msetina
+	 */
 	{ "3b:7f:96:00:00:80:31:80:65:b0:85:03:00:ef:12:0f:fe:82:90:00",
 	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:ff:ff:ff",
 	  "Gemalto IDPrime 840",
 	  SC_CARD_TYPE_IDPRIME_840, 0, NULL },
+	/* known ATR for IDPrime 940:
+	 * 3b:7f:96:00:00:80:31:80:65:b0:85:59:56:fb:12:0f:fe:82:90:00    Jakuje/xhanulik, msetina, kirichkov
+	 */
+	{ "3b:7f:96:00:00:80:31:80:65:b0:85:59:56:fb:12:0f:fe:82:90:00",
+	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:00:00:00:ff:00:00:ff:ff:ff",
+	  "Gemalto IDPrime 940",
+	  SC_CARD_TYPE_IDPRIME_940, 0, NULL },
+	/* Known ATRs:
+	 * 3b:7f:96:00:00:80:31:80:65:b0:85:05:00:39:12:0f:fe:82:90:00    vbonamy
+	 */
+	{ "3b:7f:96:00:00:80:31:80:65:b0:85:05:00:39:12:0f:fe:82:90:00",
+	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:ff:ff:ff",
+	  "Gemalto IDPrime 940C",
+	  SC_CARD_TYPE_IDPRIME_940, 0, NULL },
+	/* Known ATRs for IDPrime 940 (eToken 5110)
+	 * 3b:ff:96:00:00:81:31:fe:43:80:31:80:65:b0:85:59:56:fb:12:0f:fe:82:90:00:00    metsma, jurajsarinay
+	 */
+	{ "3b:ff:96:00:00:81:31:fe:43:80:31:80:65:b0:85:59:56:fb:12:0f:fe:82:90:00:00",
+	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:ff:00:00:00:00:ff:ff:ff:ff:ff:ff:00",
+	  "Gemalto IDPrime MD 940 (eToken 5110)",
+	  SC_CARD_TYPE_IDPRIME_940, 0, NULL },
 	{ "3b:7f:96:00:00:80:31:80:65:b0:84:41:3d:f6:12:0f:fe:82:90:00",
 	  "ff:ff:00:ff:ff:ff:ff:ff:ff:ff:00:00:00:00:ff:00:00:ff:ff:ff",
 	  "Gemalto IDPrime MD 8840, 3840, 3810, 840, 830 and MD 940 Cards",
 	  SC_CARD_TYPE_IDPRIME_GENERIC, 0, NULL },
-	{ "3b:ff:96:00:00:81:31:fe:43:80:31:80:65:b0:85:59:56:fb:12:0f:fe:82:90:00:00",
+	/* Known ATRs: Overlaps partially with 930 and 940
+	 * 3b:ff:96:00:00:81:31:80:43:80:31:80:65:b0:85:03:00:ef:12:0f:fe:82:90:00:66    metsma
+	 */
+	{ "3b:ff:96:00:00:81:31:80:43:80:31:80:65:b0:85:03:00:ef:12:0f:fe:82:90:00:66",
 	  "ff:ff:00:ff:ff:ff:ff:00:ff:ff:ff:ff:ff:ff:00:00:00:00:ff:ff:ff:ff:ff:ff:00",
-	  "Gemalto IDPrime MD 8840, 3840, 3810, 840 and 830 Cards",
+	  "Gemalto IDPrime MD 8840, 3840, 3810, 840 and 830 Cards (eToken)",
 	  SC_CARD_TYPE_IDPRIME_GENERIC, 0, NULL },
 	{ NULL, NULL, NULL, 0, 0, NULL }
 };
@@ -441,11 +472,16 @@ static int idprime_process_index(sc_card_t *card, idprime_private_data_t *priv, 
 
 			container = (idprime_container_t *) list_seek(&priv->containers, &cert_id);
 			if (!container) {
-				/* Object is added, but missing private key */
+				/* Container map missing container with certificate ID */
 				sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "No corresponding container with private key found for certificate with id=%d", cert_id);
-				sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Adding certificate with fd=%d", new_object.fd);
-				idprime_add_object_to_list(&priv->pki_list, &new_object);
-				continue;
+				if (card->type != SC_CARD_TYPE_IDPRIME_940) {
+					/* For cards other than the 940, we don't know how to recognize
+					certificates missing keys other than to check
+					that there is a corresponding entry in the container map.*/
+					sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Adding certificate with fd=%d", new_object.fd);
+					idprime_add_object_to_list(&priv->pki_list, &new_object);
+					continue;
+				}
 			}
 
 			switch (card->type) {
@@ -461,7 +497,10 @@ static int idprime_process_index(sc_card_t *card, idprime_private_data_t *priv, 
 			case SC_CARD_TYPE_IDPRIME_940: {
 					idprime_keyref_t *keyref = (idprime_keyref_t *) list_seek(&priv->keyrefmap, &cert_id);
 					if (!keyref) {
-						sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "No corresponding key reference found for certificate with id=%d, skipping", cert_id);
+						/* Key reference file does not contain record of the key for given certificate */
+						sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "No corresponding key reference found for certificate with id=%d", cert_id);
+						sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Adding certificate with fd=%d", new_object.fd);
+						idprime_add_object_to_list(&priv->pki_list, &new_object);
 						continue;
 					}
 					new_object.key_reference = keyref->key_reference;
@@ -476,8 +515,14 @@ static int idprime_process_index(sc_card_t *card, idprime_private_data_t *priv, 
 				break;
 			}
 			new_object.valid_key_ref = 1;
-			sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Found certificate with fd=%d, key_ref=%d corresponding to container \"%s\"",
-				new_object.fd, new_object.key_reference, container->guid);
+			if (container != NULL) {
+				sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Found certificate with fd=%d, key_ref=%d corresponding to container \"%s\"",
+					new_object.fd, new_object.key_reference, container->guid);
+			} else {
+				sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Found certificate with fd=%d, key_ref=%d without corresponding container",
+					new_object.fd, new_object.key_reference);
+			}
+
 			idprime_add_object_to_list(&priv->pki_list, &new_object);
 
 		/* This looks like non-standard extension listing pkcs11 token info label in my card */
@@ -574,7 +619,7 @@ static int idprime_init(sc_card_t *card)
 		LOG_FUNC_RETURN(card->ctx, r);
 	}
 
-	sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Index file found");
+	sc_debug(card->ctx, SC_LOG_DEBUG_VERBOSE, "Container file found");
 
 	r = idprime_process_containermap(card, priv, r);
 	if (r != SC_SUCCESS) {
@@ -652,7 +697,10 @@ static int idprime_init(sc_card_t *card)
 	if (card->type == SC_CARD_TYPE_IDPRIME_930
 	    || card->type == SC_CARD_TYPE_IDPRIME_940) {
 		_sc_card_add_rsa_alg(card, 4096, flags, 0);
-
+	}
+	if (card->type == SC_CARD_TYPE_IDPRIME_930 ||
+			card->type == SC_CARD_TYPE_IDPRIME_940 ||
+			card->type == SC_CARD_TYPE_IDPRIME_840) {
 		/* Set up algorithm info for EC */
 		flags = SC_ALGORITHM_ECDSA_RAW | SC_ALGORITHM_ECDSA_HASH_NONE;
 		ext_flags = SC_ALGORITHM_EXT_EC_F_P

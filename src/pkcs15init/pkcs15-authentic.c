@@ -34,16 +34,6 @@
 #include <errno.h>
 #include <stdio.h>
 
-#include <openssl/bn.h>
-#include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <openssl/sha.h>
-#include <openssl/rsa.h>
-#include <openssl/x509.h>
-#include <openssl/pkcs12.h>
-
 #include "libopensc/opensc.h"
 #include "libopensc/cardctl.h"
 #include "libopensc/log.h"
@@ -179,8 +169,10 @@ authentic_pkcs15_erase_card(struct sc_profile *profile, struct sc_pkcs15_card *p
 			rv = sc_pkcs15_get_objects(p15card, obj_type, objs, 32);
 			LOG_TEST_RET(ctx, rv, "Failed to get PKCS#15 objects to remove");
 
-			for (ii=0; ii<rv; ii++)
+			for (ii=0; ii<rv; ii++) {
 				sc_pkcs15_remove_object(p15card, objs[ii]);
+				sc_pkcs15_free_object(objs[ii]);
+			}
 		}
 
 		rv = sc_select_file(p15card->card, &df->path, &file);

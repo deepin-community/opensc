@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
@@ -426,7 +426,7 @@ static int atrust_acos_select_file(struct sc_card *card,
 	else if (in_path->type == SC_PATH_TYPE_PATH)
 	{
 		u8 n_pathbuf[SC_MAX_PATH_SIZE];
-		int bMatch = -1;
+		size_t bMatch = 0;
 
 		/* Select with path (sequence of File-IDs) */
 		/* ACOS only supports one
@@ -463,8 +463,7 @@ static int atrust_acos_select_file(struct sc_card *card,
 					bMatch += 2;
 		}
 
-		if ( card->cache.valid && bMatch >= 0 )
-		{
+		if (card->cache.valid && bMatch > 2) {
 			if ( pathlen - bMatch == 2 )
 				/* we are in the right directory */
 				return atrust_acos_select_fid(card, path[bMatch], path[bMatch+1], file_out);
@@ -507,9 +506,7 @@ static int atrust_acos_select_file(struct sc_card *card,
 				/* nothing left to do */
 				return SC_SUCCESS;
 			}
-		}
-		else
-		{
+		} else {
 			/* no usable cache */
 			for ( i=0; i<pathlen-2; i+=2 )
 			{
@@ -803,7 +800,7 @@ static int atrust_acos_check_sw(struct sc_card *card, unsigned int sw1,
 
 	sc_log(card->ctx,  "sw1 = 0x%02x, sw2 = 0x%02x\n", sw1, sw2);
 
-	if (sw1 == 0x90)
+	if (sw1 == 0x90 && sw2 == 0x00)
 		return SC_SUCCESS;
 	if (sw1 == 0x63 && (sw2 & ~0x0fU) == 0xc0 )
 	{
