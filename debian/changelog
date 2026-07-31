@@ -4,6 +4,18 @@ opensc (0.25.1-1deepin6) unstable; urgency=medium
 
  -- deepin-ci-robot <packages@deepin.org>  Thu, 16 Jul 2026 23:44:02 +0800
 
+opensc (0.26.1-2deepin1) unstable; urgency=medium
+
+  * Fix CVE-2025-49010: Use of uninitialized value after incorrect check in
+    nqApplet and ISO7816 drivers
+  * Fix CVE-2025-66037: Missing bounds check in pkcs15-pubkey SPKI fields
+    parsing
+  * Fix CVE-2025-66038: Integer overflow in sc_simpletlv handling
+  * Fix CVE-2025-66215: Buffer handling fixes in card-oberthur driver
+  * Fix CVE-2026-10275: Buffer overflow in pkcs11-tool ECC key handling
+
+ -- deepin-ci-robot <packages@deepin.org>  Fri, 31 Jul 2026 14:00:00 +0800
+
 opensc (0.26.1-2) unstable; urgency=medium
 
   * Team upload
